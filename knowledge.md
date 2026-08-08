@@ -17,6 +17,7 @@ Sistema de gestión de gimnasio (proyecto de portafolio). Monolito modular:
 ## Convenciones
 - Cada módulo vive en `backend/src/modules/<nombre>/` con `<nombre>.routes.ts` + `<nombre>.controller.ts`.
 - Queries SQL directas con `pg` (sin ORM), siempre parametrizadas ($1, $2...), nunca concatenar strings.
+- En `config/db.ts` hay `types.setTypeParser` para OID 1082 (`DATE` → texto `YYYY-MM-DD`) y 1114 (`TIMESTAMP` sin zona → texto `YYYY-MM-DD HH:MM:SS`): el default de pg las serializa con offset de zona horaria de la máquina (no determinista). Las columnas `TIMESTAMPTZ` (1184) sí son `Date`.
 - Validar el body con `zod` antes de tocar la DB.
 - Rutas protegidas con `requireAuth` / `requireRole` de `middleware/auth.ts`.
 - Código en inglés; comentarios en español solo si aclaran lógica de negocio.
@@ -47,6 +48,30 @@ Sistema de gestión de gimnasio (proyecto de portafolio). Monolito modular:
   - Lectura (`GET /` y `GET /:id`) solo `admin`/`recepcion`; `GET /` acepta `?user_id=` opcional para filtrar por miembro.
   - **Sin `PUT`** (evento inmutable); `DELETE` solo `admin` (corregir errores de registro).
   - El server corre en UTC (contenedor oficial de Postgres): los tests comparan fechas UTC contra `CURRENT_DATE` del server.
+
+## Tests (Fase 3 — pagos y vencimientos de membresía)
+- `cd backend && npm test` corre `node --test` (auto-descubre `tests/*.test.mjs`); el archivo de la fase es `tests/memberships-payments.test.mjs`. Crea usuarios propios vía SQL y los borra en el `after`: no muta el seed ni interfiere con los otros archivos que corren en paralelo.
+- Mismos requisitos que las fases anteriores: DB con seed + backend vivo en `http://127.0.0.1:4000`.
+- Convención del contrato:
+  - **Vencimiento**: materialización perezosa — al leer, cualquier membresía `status='activa'` con `end_date < CURRENT_DATE` pasa a `'vencida'` y el estado se persiste (lazy write-through). Sin jobs externos.
+  - `POST /api/memberships` (admin/recepcion): crea desde hoy con `duration_days` del plan; 409 si el usuario ya tiene una `'activa'`; solo rol `'miembro'` (400 si no); 404 si user o plan no existen.
+  - `PUT /api/memberships/:id` (solo admin) es exclusivamente **cancelación** (`{ status: 'cancelada' }`); 409 si no está `'activa'`. Las fechas nunca se editan a mano.
+  - `POST /api/payments` (admin/recepcion): registra el pago Y renueva la membresía en la **misma transacción** con `SELECT ... FOR UPDATE` (dos pagos concurrentes no renuevan dos veces desde el mismo `end_date`):
+    - `'activa'` → `end_date = end_date + duration_days` (se extiende, sin solaparse).
+    - `'vencida'` → se reactiva desde hoy: `end_date = CURRENT_DATE + duration_days`.
+    - `'cancelada'` → 409 (la baja es voluntaria y definitiva).
+  - `method` ∈ `efectivo|tarjeta|transferencia`; `status` solo `'completado'` (el pago completado es lo que renueva). **Sin `PUT` ni `DELETE` en payments**: un pago es un evento financiero inmutable (ledger), no se edita ni se borra. El rembolso queda como trabajo futuro: revertir un pago implica decidir si se revierte el `end_date` de la membresía, si se corta el acceso de inmediato y si el rembolso es parcial — decisión de negocio que merece su propio grill-me.
+  - Lectura (`GET` / `GET /:id`): admin/recepcion ven todo (con `?user_id=` opcional); el miembro solo sus propias membresías/pagos — 403 si intenta ver los de otro.
+
+## Tests (Fase 4 — reservas de clases y CRUD de clases)
+- `cd backend && npm test` corre `node --test`; el archivo de la fase es `tests/classes-bookings.test.mjs`. Crea usuarios/clases propios vía SQL/API y los borra en el `after`: no muta el seed.
+- Decisiones cerradas en el grill-me de esta fase:
+  - **CRUD de clases** (`/api/classes`): lectura para todo usuario autenticado; `POST`/`PUT` admin/recepcion (body con `name`, `trainer_id` que debe ser rol `entrenador`, `schedule_start`/`schedule_end` ISO 8601 con zona, `capacity` > 0; `schedule_end` debe ser posterior a `schedule_start`); `DELETE` solo admin. Los horarios se devuelven como texto UTC (`YYYY-MM-DD HH:MM:SS`).
+  - **Reservas** (`/api/bookings`): `POST` con `{ class_id }` (miembro self-service, usa su token) o `{ class_id, user_id }` (admin/recepcion en nombre de un miembro; staff sin `user_id` → 400). Exige membresía activa (403 si no, igual que checkins). No se reservan clases ya comenzadas (409).
+  - **Anti-overbooking**: transacción + `SELECT ... FOR UPDATE` sobre la fila de la clase (mismo patrón que `payments.create`): serializa las reservas concurrentes; si `count('reservada') >= capacity` → 409. Los tests lanzan 3 reservas simultáneas por el último cupo y exigen exactamente `1×201, 2×409`.
+  - **Cancelación**: `PUT /api/bookings/:id` con `{ status: 'cancelada' }` (miembro dueño o staff; 403 si un miembro toca la de otro; 409 si ya estaba cancelada). La **re-reserva** se hace con `POST` de nuevo: revive la fila cancelada (UPDATE, no INSERT nuevo) revalidando cupo. `DELETE` solo admin (corregir errores de registro).
+  - `'asistio'` queda sin usar: el marcado de asistencia es trabajo futuro (dashboard, Fase 8).
+  - Limitación conocida: no hay check de solapamiento horario entre clases de un mismo miembro (YAGNI; se endurecería con un chequeo de rangos dentro de la transacción).
 
 ## Reglas duras
 - No inventar features, endpoints o columnas que no estén en `001_init.sql`. Si falta algo, preguntar antes de improvisar.

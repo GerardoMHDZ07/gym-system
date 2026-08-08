@@ -46,7 +46,14 @@ async function createActiveMember() {
      VALUES ($1, $2, CURRENT_DATE, CURRENT_DATE + INTERVAL '30 days', 'activa')`,
     [userId, planRes.rows[0].id]
   );
-  return email;
+  return userId;
+}
+
+// Resuelve el id de un usuario del seed por email (los tests de contrato
+// hablan con la API en términos de user_id, no de email).
+async function userIdByEmail(email) {
+  const res = await pool.query("SELECT id FROM users WHERE email = $1", [email]);
+  return res.rows[0].id;
 }
 
 let adminToken, recepcionToken, memberToken;
@@ -65,7 +72,7 @@ test("POST /api/checkins sin token devuelve 401", async () => {
   const res = await fetch(`${BASE_URL}/api/checkins`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "miguel@gym.local" }),
+    body: JSON.stringify({ user_id: await userIdByEmail("miguel@gym.local") }),
   });
   assert.equal(res.status, 401);
 });
@@ -77,7 +84,7 @@ test("POST /api/checkins con token de miembro devuelve 403 (self-check-in no per
       Authorization: `Bearer ${memberToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email: "miguel@gym.local" }),
+    body: JSON.stringify({ user_id: await userIdByEmail("miguel@gym.local") }),
   });
   assert.equal(res.status, 403);
 });
@@ -89,32 +96,32 @@ test("POST /api/checkins para miembro con membresía vencida devuelve 403", asyn
       Authorization: `Bearer ${recepcionToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email: "daniel@gym.local" }),
+    body: JSON.stringify({ user_id: await userIdByEmail("daniel@gym.local") }),
   });
   assert.equal(res.status, 403);
 });
 
-test("POST /api/checkins con email que no existe devuelve 404", async () => {
+test("POST /api/checkins con user_id que no existe devuelve 404", async () => {
   const res = await fetch(`${BASE_URL}/api/checkins`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${recepcionToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email: "no-existe@gym.local" }),
+    body: JSON.stringify({ user_id: 999999 }),
   });
   assert.equal(res.status, 404);
 });
 
 test("POST /api/checkins como recepcion, para miembro con membresía activa, registra el check-in (201)", async () => {
-  const email = await createActiveMember();
+  const userId = await createActiveMember();
   const res = await fetch(`${BASE_URL}/api/checkins`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${recepcionToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ user_id: userId }),
   });
   assert.equal(res.status, 201);
   const body = await res.json();
@@ -123,7 +130,7 @@ test("POST /api/checkins como recepcion, para miembro con membresía activa, reg
 });
 
 test("un miembro puede tener máximo 2 check-ins por día; el 3ro devuelve 409", async () => {
-  const email = await createActiveMember();
+  const userId = await createActiveMember();
 
   for (let i = 0; i < 2; i++) {
     const res = await fetch(`${BASE_URL}/api/checkins`, {
@@ -132,7 +139,7 @@ test("un miembro puede tener máximo 2 check-ins por día; el 3ro devuelve 409",
         Authorization: `Bearer ${recepcionToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ user_id: userId }),
     });
     assert.equal(res.status, 201, `check-in #${i + 1} debería ser exitoso`);
   }
@@ -143,7 +150,7 @@ test("un miembro puede tener máximo 2 check-ins por día; el 3ro devuelve 409",
       Authorization: `Bearer ${recepcionToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ user_id: userId }),
   });
   assert.equal(thirdRes.status, 409);
 });
@@ -190,14 +197,14 @@ test("DELETE /api/checkins/:id con token de recepcion devuelve 403 (solo admin p
 });
 
 test("DELETE /api/checkins/:id con token de admin borra un check-in existente (204)", async () => {
-  const email = await createActiveMember();
+  const userId = await createActiveMember();
   const createRes = await fetch(`${BASE_URL}/api/checkins`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${recepcionToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({ user_id: userId }),
   });
   const created = await createRes.json();
 

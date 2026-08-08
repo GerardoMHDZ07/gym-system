@@ -36,11 +36,11 @@ cd frontend && npm install && npm run dev
 
 ## Roadmap (portafolio)
 
-- [ ] **Fase 0** — Modelado de datos y arquitectura (este repo)
-- [ ] **Fase 1** — Backend base + auth por roles (admin, recepción, entrenador, miembro)
-- [ ] **Fase 2** — Check-in y control de acceso
-- [ ] **Fase 3** — Pagos y vencimientos de membresía
-- [ ] **Fase 4** — Reservas de clases (concurrencia, evitar overbooking)
+- [x] **Fase 0** — Modelado de datos y arquitectura (este repo)
+- [x] **Fase 1** — Backend base + auth por roles (admin, recepción, entrenador, miembro)
+- [x] **Fase 2** — Check-in y control de acceso
+- [x] **Fase 3** — Pagos y vencimientos de membresía
+- [x] **Fase 4** — Reservas de clases (concurrencia, evitar overbooking)
 - [ ] **Fase 5** — Rutinas y catálogo de ejercicios
 - [ ] **Fase 6** — Progreso físico (métricas corporales)
 - [ ] **Fase 7** — Dashboard de reportes / analytics
@@ -55,3 +55,11 @@ cd frontend && npm install && npm run dev
   auth y las FKs de `trainer_id` / `assigned_to` en clases y rutinas.
 - La lógica de negocio sensible (reservas concurrentes, cálculo de vencimientos)
   se escribe a mano, sin delegar a AI, para poder defenderla en entrevista técnica.
+
+## Limitaciones conocidas y trabajo futuro
+
+- **Anulación/rembolso de pagos (Fase 3):** los pagos son inmutables, como un
+  ledger financiero — no se editan ni se borran una vez creados. No hay rembolso
+  en esta fase. Revertir un pago implica decidir si se revierte el `end_date` de
+  la membresía, si se corta el acceso de inmediato y si el rembolso es parcial:
+  es una decisión de negocio que merece su propio grill-me antes de implementarse.
