@@ -37,6 +37,17 @@ Sistema de gestión de gimnasio (proyecto de portafolio). Monolito modular:
 - Usuarios del seed por rol (password `demo1234` para todos): `admin@gym.local`, `recepcion@gym.local`, `carla@gym.local` y `jorge@gym.local` (entrenador), `miguel@gym.local`, `sofia@gym.local` y `daniel@gym.local` (miembro).
 - Convención del contrato: `POST /api/auth/login` devuelve `{ token, user }` sin `password_hash`; GET/POST/PUT/DELETE de `/api/users` solo con `Bearer` token y rol suficiente; mismo 401 para email inexistente o password incorrecto.
 
+## Tests (Fase 2 — check-in y control de acceso)
+- `cd backend && npm test` corre `node --test` (auto-descubre `tests/*.test.mjs`).
+- Mismos requisitos que la Fase 1: DB con seed + backend vivo en `http://127.0.0.1:4000`.
+- Convención del contrato:
+  - `POST /api/checkins` solo `admin`/`recepcion`, con `user_id` en el body.
+  - **Control de acceso**: 403 si el miembro no tiene membresía `status='activa'` Y `end_date >= CURRENT_DATE` (no valida el cálculo de vencimiento de la Fase 3: usa la membresía tal como está guardada).
+  - **Máximo 2 check-ins por día calendario por miembro** (3º intento → 409). Limitación conocida: check-then-insert sin transacción; endurecible con `SELECT ... FOR UPDATE` / advisory lock.
+  - Lectura (`GET /` y `GET /:id`) solo `admin`/`recepcion`; `GET /` acepta `?user_id=` opcional para filtrar por miembro.
+  - **Sin `PUT`** (evento inmutable); `DELETE` solo `admin` (corregir errores de registro).
+  - El server corre en UTC (contenedor oficial de Postgres): los tests comparan fechas UTC contra `CURRENT_DATE` del server.
+
 ## Reglas duras
 - No inventar features, endpoints o columnas que no estén en `001_init.sql`. Si falta algo, preguntar antes de improvisar.
 - La lógica de reservas concurrentes y vencimiento de membresías pasa siempre por grill-me primero — la decisión de diseño la tomo yo, la implementación puede ser conjunta, pero necesito poder defenderla en entrevista.
