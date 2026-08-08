@@ -6,8 +6,9 @@ services:
       POSTGRES_USER: gym
       POSTGRES_PASSWORD: gym
       POSTGRES_DB: gym_db
+    # 5433 en el host: evita conflicto con un Postgres nativo que pueda ocupar 5432
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./backend/src/migrations:/docker-entrypoint-initdb.d
@@ -16,6 +17,9 @@ services:
     restart: unless-stopped
     env_file:
       - ./backend/.env
+    environment:
+      # Dentro de la red de compose la DB vive en el host "db", no en localhost
+      DATABASE_URL: postgres://gym:gym@db:5432/gym_db
     ports:
       - "4000:4000"
     depends_on:
