@@ -14,13 +14,15 @@ export default function Login() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Ya con sesión: no mostrar el login (p. ej. al caer en una ruta inexistente)
-  if (user) return <Navigate to="/" replace />;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Ya con sesión: no mostrar el login (p. ej. al caer en una ruta inexistente).
+  // El early return va DESPUÉS de los hooks: si llegara user por un login en
+  // vivo, el conteo de hooks no cambia entre renders (Rules of Hooks).
+  if (user) return <Navigate to="/" replace />;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();

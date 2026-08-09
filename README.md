@@ -34,6 +34,13 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
+### Tests del frontend
+
+```bash
+cd frontend && npm test          # suite unitaria (Vitest + Testing Library, jsdom)
+cd frontend && npm run test:watch
+```
+
 ## Deploy (Docker Compose)
 
 ```bash
@@ -54,8 +61,8 @@ El workflow `.github/workflows/ci.yml` corre en cada push/PR a `main`:
 
 - **backend**: type-check + build.
 - **contract-tests**: levanta Postgres con seed, arranca el backend contra él y
-  corre la suite completa de tests de contrato (`npm test` — 144 tests).
-- **frontend**: type-check + build.
+  corre la suite completa de tests de contrato (`npm test` — 149 tests).
+- **frontend**: tests unitarios (Vitest + Testing Library) + type-check + build.
 
 ## Roadmap (portafolio)
 

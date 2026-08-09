@@ -111,9 +111,28 @@ Sistema de gestión de gimnasio (proyecto de portafolio). Monolito modular:
   - `GET /api/plans` (nuevo, solo lectura, autenticado): catálogo de `membership_plans` con `price` casteado a float8. Lo necesita la UI del alta de membresías (no existía forma de listar planes).
   - `GET /api/users` (y `/:id`): ahora también para `entrenador` (solo lectura, columnas públicas). Lo necesita para asignar rutinas y registrar métricas; la escritura sigue siendo `admin`/`recepcion` y el DELETE solo `admin`.
 - **Deploy**: `frontend/Dockerfile` multi-stage (node build → nginx) + `frontend/nginx.conf` (SPA fallback + proxy `/api` → `backend:4000`). Servicio `frontend` en `docker-compose.yml` (`8080:80`). Docs en README.
+- **`backend/.dockerignore` es obligatorio** (excluye `node_modules`, `dist`, `.env`, `*.log`): sin él, `COPY . .` mete el `node_modules` local de **Windows** al contenedor Linux y el build rompe con `node.exe: not found` (el shim `.bin/tsc` de npm en Windows referencia `PROG_EXE=node.exe`). El frontend ya lo tenía; el del backend se agregó cuando el build de compose falló por esto.
 - **CI**: `.github/workflows/ci.yml` agrega el job `contract-tests`: Postgres como servicio + seed + backend en background (`npx tsx src/index.ts &` con health check) + `npm test`. Env del job: `DATABASE_URL`, `JWT_SECRET`, `PORT` (no hay `.env` en CI).
-- **Testing del frontend**: sin suite automatizada (smoke test manual en browser); la cobertura real de la API que consume la UI vive en los tests de contrato del backend.
-- Trabajo futuro: marcado de asistencia (`'asistio'`), rango custom en el dashboard, tests automatizados del frontend.
+- **Testing del frontend**: suite unitaria con Vitest + Testing Library (`cd frontend && npm test`, jsdom sin browser). Cubre el cliente HTTP (`src/api/client.ts`), auth/guard de rutas, Layout, Login, helpers de UI y una página de ejemplo (`Members`) con el patrón de mock de `api`. Los tests de página corren contra la API mockeada; la cobertura real de los endpoints vive en los tests de contrato del backend.
+- Trabajo futuro: marcado de asistencia (`'asistio'`), rango custom en el dashboard.
+
+## Tests (Frontend — Vitest + Testing Library)
+- `cd frontend && npm test` corre `vitest run` (jsdom, sin browser); `npm run test:watch` para watch. Setup común en `frontend/src/test/setup.ts` (matchers de jest-dom + `cleanup()` explícito porque no se usan globals de Vitest).
+- **No** se fija `TZ=UTC` en el entorno: en Windows, cambiar `process.env.TZ` en runtime no afecta a `Date` (lo ignora). Los tests de formato (`fmtDateTime`) comparan contra el mismo formateo local del runner para ser deterministas en cualquier máquina/CI.
+- Cobertura actual (8 archivos, co-located en `src/`):
+  - `src/api/client.test.ts` — headers de auth, serialización del body, `ApiError` (status + mensaje del server), 401 → limpia sesión + dispara `gym:unauthorized`, 204 → `undefined`.
+  - `src/auth/AuthContext.test.tsx` — sesión inicial desde localStorage, login (guarda token + user), error propagado, evento `gym:unauthorized` cierra sesión en vivo, logout limpia todo.
+  - `src/auth/ProtectedRoute.test.tsx` — sin sesión → `/login`; rol no permitido → `/`; rol permitido → contenido.
+  - `src/components/Layout.test.tsx` — nav filtrada por rol, nombre/rol del usuario, logout navega a `/login`.
+  - `src/pages/Login.test.tsx` — cuentas demo completan el form, login OK navega, error del server se muestra, con sesión redirige. (Los labels no tienen `htmlFor`: se buscan por placeholder.)
+  - `src/components/ui.test.tsx` — `roleLabel`, `fmtDateTime`/`fmtDate`, `Badge`.
+  - `src/pages/Members.test.tsx` — patrón de referencia para páginas: `vi.mock("../api/client", async (importOriginal) => ({ ...actual, api: apiMock }))` mockea solo `api()` y conserva `ApiError`/`ROLES`/`roleLabel` reales. Listado, búsqueda, `Eliminar` solo para admin, DELETE con `confirm` + recarga.
+  - `src/App.test.tsx` — **integración**: App + AuthProvider + rutas reales con `api()` mockeada por endpoint (un mini-backend en el test). Login real → dashboard de staff (KPIs), navegación por sidebar, redirects del guard por rol, logout, ruta inexistente → login.
+- `npm run build` incluye `tsc --noEmit`, que type-checkea también los tests (viven dentro de `src/`): la suite queda cubierta por el type-check del CI.
+- **Bugs que el test de integración destapó y se corrigieron** (no reproducibles con tests unitarios mockeando `useAuth`):
+  - `Login.tsx` tenía un early return (`if (user) return <Navigate .../>`) **antes** de los `useState`: al hacer login en vivo el conteo de hooks cambiaba entre renders → "Rendered fewer hooks than expected" y React desmontaba el árbol. El return se movió después de los hooks (siempre se ejecutan incondicionalmente).
+  - `Layout.tsx` hacía `if (!user) return null` antes de pintar el `<Outlet>`: el `ProtectedRoute` (que redirige a `/login`) nunca llegaba a montarse y un visitante sin sesión en `/miembros` veía **pantalla en blanco**. Ahora `Layout` redirige a `/login` con `state={{ from: location }}` (mismo patrón que `ProtectedRoute`).
+- El CI (`.github/workflows/ci.yml`, job `frontend`) corre `npm test` antes del build.
 
 ## Reglas duras
 - No inventar features, endpoints o columnas que no estén en `001_init.sql`. Si falta algo, preguntar antes de improvisar.

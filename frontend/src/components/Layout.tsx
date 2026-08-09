@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { roleLabel } from "../api/client";
 
@@ -32,9 +32,13 @@ const NAV: NavItem[] = [
 export default function Layout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [open, setOpen] = useState(false);
 
-  if (!user) return null;
+  // Sin sesión no hay layout que pintar: al login, con la ruta de origen para
+  // volver tras loguearse (mismo patrón que ProtectedRoute). Sin este guard, un
+  // visitante que entra directo a /miembros vería pantalla en blanco.
+  if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
   const items = NAV.filter((n) => n.roles.includes(user.role));
 
   const sidebar = (
