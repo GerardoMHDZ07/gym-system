@@ -83,6 +83,17 @@ Sistema de gestión de gimnasio (proyecto de portafolio). Monolito modular:
   - **Validaciones**: `assigned_to` debe existir y ser rol `'miembro'` (404 inexistente, 400 rol incorrecto — misma convención que `memberships.create`). **No exige membresía activa**: una rutina es un plan de entrenamiento, no un acceso (a diferencia de checkins/bookings). Los `exercise_id` del body deben existir (400). `order_index` opcional: si no llega, se usa la posición en el array del body.
   - Limitación conocida: el full replace regenera los ids de `routine_exercises` en cada `PUT` (la rutina conserva su `id`); no hay `UNIQUE(routine_id, exercise_id)` → el mismo ejercicio puede repetirse (supersets, a propósito).
 
+## Tests (Fase 6 — métricas corporales)
+- `cd backend && npm test` corre `node --test`; el archivo de la fase es `tests/metrics.test.mjs`. Crea usuarios/mediciones propios vía SQL/API y los borra en el `after`: no muta el seed.
+- Decisiones cerradas en el grill-me de esta fase:
+  - **Una medición por día calendario por miembro**: `POST /api/metrics` con una fecha que ya tiene medición → 409. La **fecha se fija al crear** (el `PUT` solo corrige valores: `weight_kg`, `body_fat_pct`, `notes`; los omitidos quedan iguales).
+  - **Quién registra/edita**: el miembro **self-service** con su token (el `user_id` del body se ignora para miembros — no se puede falsificar); `admin`/`recepcion`/`entrenador` registran en nombre de un miembro (con `user_id`; sin él → 400). `DELETE` solo `admin`.
+  - **Visibilidad**: el miembro solo ve SUS métricas (403 si ve la de otro); el staff ve todas con `?user_id=` opcional. Serie ascendente por `date`.
+  - **Validación**: `date` opcional (por defecto hoy, `'YYYY-MM-DD'`, la columna es `DATE`); fecha futura → 400. `weight_kg`/`body_fat_pct` opcionales individualmente pero **al menos uno obligatorio**; rangos NUMERIC(5,2) → (0, 999.99] y NUMERIC(4,2) → [0, 99.99]. `notes` máx 2000.
+  - **Concurrencia**: transacción + `SELECT ... FOR UPDATE` sobre la fila del user (mismo patrón que `bookings` con la fila de la clase): serializa los POST concurrentes del mismo miembro. Limitación conocida: sin `UNIQUE(user_id, date)` en la DB, el 409 es check-then-insert bajo el lock — endurecible a nivel esquema con grill-me.
+  - **Serialización NUMERIC**: `pg` devuelve NUMERIC como string por defecto (p. ej. `payments.amount`). En metrics se castea `weight_kg::float8`/`body_fat_pct::float8` en el SQL para que el JSON lleve números (gráfico de progreso). **No** tocar el parser global de OID 1700: cambiaría el contrato de `payments.amount`.
+  - Fecha del seed relativa: `002_seed.sql` siembra la medición "de hoy" de miguel con la fecha de cuando se aplicó el seed; si el seed se aplicó ayer, esa entrada es `CURRENT_DATE - 1`. Los tests usan fechas pasadas fijas (nunca `-1` ni `-30/-31` para no colisionar con el seed) o a sofia (que el seed no toca).
+
 ## Reglas duras
 - No inventar features, endpoints o columnas que no estén en `001_init.sql`. Si falta algo, preguntar antes de improvisar.
 - La lógica de reservas concurrentes y vencimiento de membresías pasa siempre por grill-me primero — la decisión de diseño la tomo yo, la implementación puede ser conjunta, pero necesito poder defenderla en entrevista.

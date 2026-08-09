@@ -42,7 +42,7 @@ cd frontend && npm install && npm run dev
 - [x] **Fase 3** — Pagos y vencimientos de membresía
 - [x] **Fase 4** — Reservas de clases (concurrencia, evitar overbooking)
 - [x] **Fase 5** — Rutinas y catálogo de ejercicios
-- [ ] **Fase 6** — Progreso físico (métricas corporales)
+- [x] **Fase 6** — Progreso físico (métricas corporales)
 - [ ] **Fase 7** — Dashboard de reportes / analytics
 - [ ] **Fase 8** — Testing, pulido UI, deploy
 - [ ] **Fase 9 (opcional)** — Asistente IA para recomendación de rutinas
@@ -69,3 +69,13 @@ cd frontend && npm install && npm run dev
   `routine_exercises` cambian en cada edición — la rutina conserva su `id`, los
   ejercicios no. El mismo ejercicio puede repetirse dentro de una rutina
   (supersets): no hay constraint `UNIQUE(routine_id, exercise_id)`.
+
+- **Métricas corporales (Fase 6):** la fecha se fija al crear (el `PUT` solo
+  corrige valores; para mover una medición de día hay que borrarla y recrearla).
+  La regla "una por día" se aplica con check-then-insert dentro de la
+  transacción (lock de la fila del user) porque la DB no tiene constraint
+  `UNIQUE(user_id, date)` — endurecerlo es una decisión de esquema que merece
+  su propio grill-me. Nota: `weight_kg`/`body_fat_pct` (NUMERIC) se devuelven
+  como número en la API (cast `float8` en el SQL) porque `pg` serializa NUMERIC
+  como string por defecto; el parser global no se toca para no cambiar el
+  contrato de `payments.amount`.
