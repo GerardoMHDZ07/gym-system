@@ -4,7 +4,9 @@ import { pool } from "../../config/db";
 import { AuthRequest } from "../../middleware/auth";
 
 // Columnas reales de la tabla "payments" (regla dura: no inventar columnas).
-const PAYMENT_COLUMNS = "id, membership_id, amount, payment_date, method, status";
+// amount es NUMERIC y pg lo devuelve como string por defecto: se castea a
+// float8 para que el JSON lleve número (misma convención que plans y metrics).
+const PAYMENT_COLUMNS = "id, membership_id, amount::float8 AS amount, payment_date, method, status";
 const MEMBERSHIP_COLUMNS = "id, user_id, plan_id, start_date, end_date, status, created_at";
 
 const createPaymentSchema = z.object({

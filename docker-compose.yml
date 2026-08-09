@@ -24,5 +24,13 @@ services:
       - "4000:4000"
     depends_on:
       - db
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    # nginx sirve el build y proxea /api -> backend:4000
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
 volumes:
   db_data:

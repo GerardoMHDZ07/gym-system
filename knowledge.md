@@ -105,6 +105,16 @@ Sistema de gestión de gimnasio (proyecto de portafolio). Monolito modular:
   - **Tests con cotas inferiores e invariantes**: los archivos de test corren en paralelo y este bundle es global, así que no se aseveran valores exactos — se verifican sumas consistentes (serie diaria = total 7d, por método ≈ total 30d), tipos numéricos, y cotas derivadas del seed + datos propios.
   - Trabajo futuro relacionado: marcado de asistencia (`'asistio'`) para medir ocupación real de clases (hoy se usa reserva vigente).
 
+## Fase 8 — frontend completo, CI y deploy
+- **Frontend** (`frontend/`): app completa por rol en Vite + React + Tailwind (decisión del grill-me). Auth con JWT en `localStorage` (`src/auth/AuthContext.tsx`), client HTTP tipado con proxy de `/api` (`src/api/client.ts`), sidebar de navegación filtrada por rol (`src/components/Layout.tsx`), páginas por módulo. En dev, Vite proxea `/api` → `127.0.0.1:4000`; en prod lo hace nginx.
+- **Decisiones de contrato de esta fase** (grilleadas antes de tocar el backend):
+  - `GET /api/plans` (nuevo, solo lectura, autenticado): catálogo de `membership_plans` con `price` casteado a float8. Lo necesita la UI del alta de membresías (no existía forma de listar planes).
+  - `GET /api/users` (y `/:id`): ahora también para `entrenador` (solo lectura, columnas públicas). Lo necesita para asignar rutinas y registrar métricas; la escritura sigue siendo `admin`/`recepcion` y el DELETE solo `admin`.
+- **Deploy**: `frontend/Dockerfile` multi-stage (node build → nginx) + `frontend/nginx.conf` (SPA fallback + proxy `/api` → `backend:4000`). Servicio `frontend` en `docker-compose.yml` (`8080:80`). Docs en README.
+- **CI**: `.github/workflows/ci.yml` agrega el job `contract-tests`: Postgres como servicio + seed + backend en background (`npx tsx src/index.ts &` con health check) + `npm test`. Env del job: `DATABASE_URL`, `JWT_SECRET`, `PORT` (no hay `.env` en CI).
+- **Testing del frontend**: sin suite automatizada (smoke test manual en browser); la cobertura real de la API que consume la UI vive en los tests de contrato del backend.
+- Trabajo futuro: marcado de asistencia (`'asistio'`), rango custom en el dashboard, tests automatizados del frontend.
+
 ## Reglas duras
 - No inventar features, endpoints o columnas que no estén en `001_init.sql`. Si falta algo, preguntar antes de improvisar.
 - La lógica de reservas concurrentes y vencimiento de membresías pasa siempre por grill-me primero — la decisión de diseño la tomo yo, la implementación puede ser conjunta, pero necesito poder defenderla en entrevista.

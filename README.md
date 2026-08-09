@@ -34,6 +34,29 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
+## Deploy (Docker Compose)
+
+```bash
+docker compose up --build -d
+```
+
+- **Frontend**: http://localhost:8080 — nginx sirve el build de Vite y proxea
+  `/api` al backend (`backend:4000` dentro de la red de compose).
+- **Backend**: http://localhost:4000
+- **Postgres**: publicado en `localhost:5433` (evita choque con un Postgres
+  nativo en 5432); el backend usa `db:5432` en la red interna.
+- En desarrollo local, en cambio, se usan `npm run dev` en cada carpeta: Vite
+  proxea `/api` a `127.0.0.1:4000` (misma config que nginx en prod).
+
+## CI (GitHub Actions)
+
+El workflow `.github/workflows/ci.yml` corre en cada push/PR a `main`:
+
+- **backend**: type-check + build.
+- **contract-tests**: levanta Postgres con seed, arranca el backend contra él y
+  corre la suite completa de tests de contrato (`npm test` — 144 tests).
+- **frontend**: type-check + build.
+
 ## Roadmap (portafolio)
 
 - [x] **Fase 0** — Modelado de datos y arquitectura (este repo)
@@ -44,7 +67,7 @@ cd frontend && npm install && npm run dev
 - [x] **Fase 5** — Rutinas y catálogo de ejercicios
 - [x] **Fase 6** — Progreso físico (métricas corporales)
 - [x] **Fase 7** — Dashboard de reportes / analytics
-- [ ] **Fase 8** — Testing, pulido UI, deploy
+- [x] **Fase 8** — Testing, pulido UI, deploy
 - [ ] **Fase 9 (opcional)** — Asistente IA para recomendación de rutinas
 
 ## Decisiones de arquitectura
