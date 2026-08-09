@@ -73,6 +73,16 @@ Sistema de gestión de gimnasio (proyecto de portafolio). Monolito modular:
   - `'asistio'` queda sin usar: el marcado de asistencia es trabajo futuro (dashboard, Fase 8).
   - Limitación conocida: no hay check de solapamiento horario entre clases de un mismo miembro (YAGNI; se endurecería con un chequeo de rangos dentro de la transacción).
 
+## Tests (Fase 5 — rutinas y catálogo de ejercicios)
+- `cd backend && npm test` corre `node --test`; el archivo de la fase es `tests/routines-exercises.test.mjs`. Crea usuarios/ejercicios/rutinas propios vía SQL/API y los borra en el `after`: no muta el seed.
+- Decisiones cerradas en el grill-me de esta fase:
+  - **Catálogo de ejercicios** (`/api/exercises`): lectura para todo autenticado; `POST`/`PUT` solo `admin`/`recepcion`; `DELETE` solo `admin` (dato maestral, misma política que `classes`). Columnas: `name` (obligatorio), `muscle_group`, `description`, `video_url` (opcionales).
+  - **Rutinas como agregado** (`/api/routines`): `POST`/`PUT` reciben los ejercicios **anidados** (`{ name, assigned_to, notes, exercises: [{ exercise_id, sets, reps, order_index?, rest_seconds? }] }`) y la transacción inserta o reemplaza todo atómicamente (el `PUT` es full replace: borra y reinserta `routine_exercises`). `created_by` sale **siempre del token**, nunca del body (no se puede falsificar).
+  - **Quién escribe rutinas**: `entrenador` (solo las suyas — 403 si toca una ajena) y `admin`/`recepcion` (cualquiera). `DELETE` solo `admin`. El miembro no escribe.
+  - **Visibilidad de lectura**: el miembro ve solo las rutinas con `assigned_to = él`; el entrenador solo las que creó (`created_by = él`); `admin`/`recepcion` ven todo con `?user_id=` opcional que filtra por `assigned_to`. El detalle (`GET /:id`, `POST`, `PUT`) embebe `exercises` con `exercise_name` (alias de JOIN); el listado no los incluye.
+  - **Validaciones**: `assigned_to` debe existir y ser rol `'miembro'` (404 inexistente, 400 rol incorrecto — misma convención que `memberships.create`). **No exige membresía activa**: una rutina es un plan de entrenamiento, no un acceso (a diferencia de checkins/bookings). Los `exercise_id` del body deben existir (400). `order_index` opcional: si no llega, se usa la posición en el array del body.
+  - Limitación conocida: el full replace regenera los ids de `routine_exercises` en cada `PUT` (la rutina conserva su `id`); no hay `UNIQUE(routine_id, exercise_id)` → el mismo ejercicio puede repetirse (supersets, a propósito).
+
 ## Reglas duras
 - No inventar features, endpoints o columnas que no estén en `001_init.sql`. Si falta algo, preguntar antes de improvisar.
 - La lógica de reservas concurrentes y vencimiento de membresías pasa siempre por grill-me primero — la decisión de diseño la tomo yo, la implementación puede ser conjunta, pero necesito poder defenderla en entrevista.

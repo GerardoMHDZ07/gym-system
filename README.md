@@ -41,7 +41,7 @@ cd frontend && npm install && npm run dev
 - [x] **Fase 2** — Check-in y control de acceso
 - [x] **Fase 3** — Pagos y vencimientos de membresía
 - [x] **Fase 4** — Reservas de clases (concurrencia, evitar overbooking)
-- [ ] **Fase 5** — Rutinas y catálogo de ejercicios
+- [x] **Fase 5** — Rutinas y catálogo de ejercicios
 - [ ] **Fase 6** — Progreso físico (métricas corporales)
 - [ ] **Fase 7** — Dashboard de reportes / analytics
 - [ ] **Fase 8** — Testing, pulido UI, deploy
@@ -62,4 +62,10 @@ cd frontend && npm install && npm run dev
   ledger financiero — no se editan ni se borran una vez creados. No hay rembolso
   en esta fase. Revertir un pago implica decidir si se revierte el `end_date` de
   la membresía, si se corta el acceso de inmediato y si el rembolso es parcial:
-  es una decisión de negocio que merece su propio grill-me antes de implementarse.
+  es una decisión  de negocio que merece su propio grill-me antes de implementarse.
+
+- **Rutinas como agregado (Fase 5):** el `PUT /api/routines/:id` reemplaza el
+  detalle completo (full replace en transacción), así que los ids de
+  `routine_exercises` cambian en cada edición — la rutina conserva su `id`, los
+  ejercicios no. El mismo ejercicio puede repetirse dentro de una rutina
+  (supersets): no hay constraint `UNIQUE(routine_id, exercise_id)`.
