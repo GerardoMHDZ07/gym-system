@@ -43,7 +43,7 @@ cd frontend && npm install && npm run dev
 - [x] **Fase 4** — Reservas de clases (concurrencia, evitar overbooking)
 - [x] **Fase 5** — Rutinas y catálogo de ejercicios
 - [x] **Fase 6** — Progreso físico (métricas corporales)
-- [ ] **Fase 7** — Dashboard de reportes / analytics
+- [x] **Fase 7** — Dashboard de reportes / analytics
 - [ ] **Fase 8** — Testing, pulido UI, deploy
 - [ ] **Fase 9 (opcional)** — Asistente IA para recomendación de rutinas
 
@@ -79,3 +79,11 @@ cd frontend && npm install && npm run dev
   como número en la API (cast `float8` en el SQL) porque `pg` serializa NUMERIC
   como string por defecto; el parser global no se toca para no cambiar el
   contrato de `payments.amount`.
+
+- **Dashboard (Fase 7):** `GET /api/dashboard/summary` es un bundle de solo
+  lectura con ventanas fijas (hoy, 7 y 30 días) — un rango custom `?from=&to=`
+  queda como trabajo futuro si algún frontend lo necesita. El estado de
+  membresía se calcula sobre la marcha con la misma regla que la materialización
+  perezosa, pero sin escribir en la DB. La ocupación de clases se calcula con
+  reservas `'reservada'`: el marcado de asistencia (`'asistio'`) sigue pendiente
+  para medir ocupación real.

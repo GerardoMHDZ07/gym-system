@@ -12,6 +12,7 @@ import bookingsRoutes from "./modules/bookings/bookings.routes";
 import exercisesRoutes from "./modules/exercises/exercises.routes";
 import routinesRoutes from "./modules/routines/routines.routes";
 import metricsRoutes from "./modules/metrics/metrics.routes";
+import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.use("/api/bookings", bookingsRoutes);
 app.use("/api/exercises", exercisesRoutes);
 app.use("/api/routines", routinesRoutes);
 app.use("/api/metrics", metricsRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 // Middleware de error global (Express 4 no captura rechazos de handlers async,
 // así que también blindamos unhandled rejections: un error puntual devuelve 500

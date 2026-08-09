@@ -94,6 +94,17 @@ Sistema de gestión de gimnasio (proyecto de portafolio). Monolito modular:
   - **Serialización NUMERIC**: `pg` devuelve NUMERIC como string por defecto (p. ej. `payments.amount`). En metrics se castea `weight_kg::float8`/`body_fat_pct::float8` en el SQL para que el JSON lleve números (gráfico de progreso). **No** tocar el parser global de OID 1700: cambiaría el contrato de `payments.amount`.
   - Fecha del seed relativa: `002_seed.sql` siembra la medición "de hoy" de miguel con la fecha de cuando se aplicó el seed; si el seed se aplicó ayer, esa entrada es `CURRENT_DATE - 1`. Los tests usan fechas pasadas fijas (nunca `-1` ni `-30/-31` para no colisionar con el seed) o a sofia (que el seed no toca).
 
+## Tests (Fase 7 — dashboard de reportes / analytics)
+- `cd backend && npm test` corre `node --test`; el archivo de la fase es `tests/dashboard.test.mjs`. Crea un miembro + membresía activa + pago + check-in en el `before` y los borra en el `after` (CASCADE): no muta el seed.
+- Decisiones cerradas en el grill-me de esta fase:
+  - **Bundle único**: `GET /api/dashboard/summary` (montado en `/api/dashboard`). **Solo `admin`/`recepcion`** (incluye ingresos; el entrenador no ve datos financieros).
+  - **Ventanas fijas**: hoy, últimos 7 y 30 días, sin params. Rango custom `?from=&to=` = trabajo futuro (YAGNI).
+  - **Solo lectura**: el estado de membresía se calcula sobre la marcha con la MISMA regla que la materialización perezosa (`'activa'` solo si `end_date >= CURRENT_DATE`; una `'activa'` vencida cuenta como vencida) pero **sin escribir** en la DB — el dashboard es un agregado de lectura, no muta nada.
+  - **KPIs**: `members` (total, `new_last_30d`); `memberships` (`active` + `breakdown` por status); `checkins` (`today`, `last_7d_total`, `by_day_last_7d` — serie de 7 días con `generate_series` llenando ceros); `revenue` (`today`, `last_30d`, `by_method_last_30d`); `classes` (`upcoming_7d`, `active_bookings`, `avg_occupancy_7d` — reservas `'reservada'`/capacidad, 0..1).
+  - **Serialización**: `count(*)::int` y `SUM`/`AVG` de NUMERIC a `::float8` para que el JSON lleve números (pg devuelve int8/numeric como string por defecto). Son 9 queries independientes en `Promise.all`.
+  - **Tests con cotas inferiores e invariantes**: los archivos de test corren en paralelo y este bundle es global, así que no se aseveran valores exactos — se verifican sumas consistentes (serie diaria = total 7d, por método ≈ total 30d), tipos numéricos, y cotas derivadas del seed + datos propios.
+  - Trabajo futuro relacionado: marcado de asistencia (`'asistio'`) para medir ocupación real de clases (hoy se usa reserva vigente).
+
 ## Reglas duras
 - No inventar features, endpoints o columnas que no estén en `001_init.sql`. Si falta algo, preguntar antes de improvisar.
 - La lógica de reservas concurrentes y vencimiento de membresías pasa siempre por grill-me primero — la decisión de diseño la tomo yo, la implementación puede ser conjunta, pero necesito poder defenderla en entrevista.
