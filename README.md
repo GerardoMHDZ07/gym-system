@@ -3,6 +3,21 @@
 Sistema de gestión para gimnasio: membresías, check-in, pagos, reservas de clases,
 rutinas de entrenamiento y seguimiento de progreso físico.
 
+## Demo
+
+🔗 **[gym-system-1-xoxy.onrender.com](https://gym-system-1-xoxy.onrender.com)**
+
+Credenciales de prueba (todas usan el password `demo1234`):
+
+| Rol | Email |
+|---|---|
+| Admin | `admin@gym.local` |
+| Recepción | `recepcion@gym.local` |
+| Entrenador | `carla@gym.local` |
+| Miembro | `miguel@gym.local` |
+
+> El backend corre en el tier gratuito de Render, que se duerme tras 15 min de inactividad. La primera carga después de un rato sin uso puede tardar 30-60 segundos — es la infraestructura gratuita, no un bug de la app.
+
 ## Stack
 
 - **Backend**: Node.js + TypeScript + Express + PostgreSQL
@@ -71,6 +86,15 @@ El workflow `.github/workflows/ci.yml` corre en cada push/PR a `main`:
 - **contract-tests**: levanta Postgres con seed, arranca el backend contra él y
   corre la suite completa de tests de contrato (`npm test` — 149 tests).
 - **frontend**: tests unitarios (Vitest + Testing Library) + type-check + build.
+
+Además del deploy local con Docker Compose, la app corre en producción en
+**Render** (frontend: `gym-system-1-xoxy.onrender.com`, backend:
+`gym-system-2sb4.onrender.com`) con PostgreSQL en **Supabase**. En Render el
+nginx del frontend proxea `/api` a la URL pública del backend (el tier free no
+disponibiliza red privada entre servicios). El workflow
+`.github/workflows/keep-alive.yml` corre cada 3 días y manda un `SELECT 1` a la
+DB para que el tier gratuito de Supabase (que pausa proyectos tras 7 días sin
+peticiones) no se duerma.
 
 ## Roadmap (portafolio)
 
