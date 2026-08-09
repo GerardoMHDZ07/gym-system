@@ -17,8 +17,35 @@ import plansRoutes from "./modules/plans/plans.routes";
 
 dotenv.config();
 
+// Orígenes permitidos para CORS. El frontend siempre llama a `/api` relativo
+// (proxied por Vite en dev, por nginx en prod), así que el Origin que llega al
+// backend es el dominio del frontend, no el del backend. Lista por defecto:
+// dev (Vite :5173), docker-compose (:8080) y el frontend de Render en prod.
+// Se sobreescribe con CORS_ORIGINS (separado por comas) si hiciera falta.
+// Si la env var llega vacía (""), se trata como no seteada: un CORS_ORIGINS
+// vacío rompería el frontend en silencio (allowlist sin orígenes).
+const CORS_ORIGINS = (process.env.CORS_ORIGINS?.trim() ||
+  [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:8080",
+    "https://gym-system-1-xoxy.onrender.com",
+  ].join(","))
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: (origin, cb) => {
+      // Sin header Origin (curl, health checks, server-to-server) no es una
+      // petición de browser: se permite. Con Origin, solo si está en la lista.
+      if (!origin || CORS_ORIGINS.includes(origin)) return cb(null, true);
+      return cb(null, false);
+    },
+  })
+);
 app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ ok: true }));

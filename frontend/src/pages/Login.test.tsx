@@ -33,22 +33,12 @@ describe("Login", () => {
     auth.login.mockResolvedValue(undefined);
   });
 
-  it("las cuentas demo completan el formulario al hacer click", async () => {
-    const user = userEvent.setup();
-    renderLogin();
-
-    await user.click(screen.getByRole("button", { name: /admin@gym.local/i }));
-
-    expect(screen.getByPlaceholderText("admin@gym.local")).toHaveValue("admin@gym.local");
-    expect(screen.getByPlaceholderText("demo1234")).toHaveValue("demo1234");
-  });
-
   it("un login exitoso navega a la home", async () => {
     const user = userEvent.setup();
     renderLogin();
 
-    await user.type(screen.getByPlaceholderText("admin@gym.local"), "admin@gym.local");
-    await user.type(screen.getByPlaceholderText("demo1234"), "demo1234");
+    await user.type(screen.getByPlaceholderText("tu@email.com"), "admin@gym.local");
+    await user.type(screen.getByPlaceholderText("••••••••"), "demo1234");
     await user.click(screen.getByRole("button", { name: "Ingresar" }));
 
     expect(auth.login).toHaveBeenCalledWith("admin@gym.local", "demo1234");
@@ -60,8 +50,8 @@ describe("Login", () => {
     const user = userEvent.setup();
     renderLogin();
 
-    await user.type(screen.getByPlaceholderText("admin@gym.local"), "x@x.com");
-    await user.type(screen.getByPlaceholderText("demo1234"), "mal");
+    await user.type(screen.getByPlaceholderText("tu@email.com"), "x@x.com");
+    await user.type(screen.getByPlaceholderText("••••••••"), "mal");
     await user.click(screen.getByRole("button", { name: "Ingresar" }));
 
     expect(await screen.findByText("Credenciales inválidas")).toBeInTheDocument();

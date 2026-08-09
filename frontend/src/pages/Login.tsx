@@ -3,13 +3,6 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { ApiError } from "../api/client";
 
-const DEMO = [
-  { role: "Admin", email: "admin@gym.local" },
-  { role: "Recepción", email: "recepcion@gym.local" },
-  { role: "Entrenador", email: "carla@gym.local" },
-  { role: "Miembro", email: "miguel@gym.local" },
-];
-
 export default function Login() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
@@ -56,35 +49,20 @@ export default function Login() {
           {error && <p className="rounded-lg border border-red-800 bg-red-950/50 px-3 py-2 text-sm text-red-300">{error}</p>}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-zinc-300">Email</label>
-            <input className="input" type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="admin@gym.local" />
+            <input className="input" type="email" required autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@email.com" />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-zinc-300">Contraseña</label>
-            <input className="input" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="demo1234" />
+            <input className="input" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
           </div>
           <button className="btn-primary w-full" disabled={busy}>
             {busy ? "Ingresando..." : "Ingresar"}
           </button>
         </form>
 
-        <div className="mt-6">
-          <p className="mb-2 text-center text-xs uppercase tracking-wider text-zinc-600">Cuentas demo · password <code className="text-zinc-400">demo1234</code></p>
-          <div className="grid grid-cols-2 gap-2">
-            {DEMO.map((d) => (
-              <button
-                key={d.email}
-                onClick={() => {
-                  setEmail(d.email);
-                  setPassword("demo1234");
-                }}
-                className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-left text-xs transition hover:border-lime-400/40 hover:bg-zinc-900"
-              >
-                <span className="block font-medium text-zinc-200">{d.role}</span>
-                <span className="block truncate text-zinc-500">{d.email}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <p className="mt-6 text-center text-xs text-zinc-600">
+          ¿Querés probar? Las credenciales demo están en el README del proyecto.
+        </p>
       </div>
     </div>
   );

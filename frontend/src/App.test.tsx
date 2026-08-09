@@ -74,7 +74,8 @@ function stubApi() {
 }
 
 async function loginAs(user: UserEvent, email: string) {
-  await user.click(screen.getByRole("button", { name: new RegExp(email, "i") }));
+  await user.type(screen.getByPlaceholderText("tu@email.com"), email);
+  await user.type(screen.getByPlaceholderText("••••••••"), "demo1234");
   await user.click(screen.getByRole("button", { name: "Ingresar" }));
 }
 
@@ -117,7 +118,7 @@ describe("App (integración)", () => {
     const user = userEvent.setup();
     // Sin sesión, ProtectedRoute manda al login con la ruta de origen (/miembros)
     renderApp("/miembros");
-    expect(await screen.findByPlaceholderText("demo1234")).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText("••••••••")).toBeInTheDocument();
 
     await loginAs(user, "miguel@gym.local");
 
@@ -141,11 +142,11 @@ describe("App (integración)", () => {
     await user.click(screen.getByRole("button", { name: "Cerrar sesión" }));
 
     expect(getToken()).toBeNull();
-    expect(await screen.findByPlaceholderText("demo1234")).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText("••••••••")).toBeInTheDocument();
   });
 
   it("una ruta inexistente cae en el login", async () => {
     renderApp("/no-existe");
-    expect(await screen.findByPlaceholderText("demo1234")).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText("••••••••")).toBeInTheDocument();
   });
 });

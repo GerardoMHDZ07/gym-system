@@ -34,6 +34,14 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
+### Cuentas demo
+
+El seed (`backend/src/migrations/002_seed.sql`) crea usuarios de prueba por rol,
+con password `demo1234` para todos: `admin@gym.local`, `recepcion@gym.local`,
+`carla@gym.local` / `jorge@gym.local` (entrenadores) y `miguel@gym.local` /
+`sofia@gym.local` / `daniel@gym.local` (miembros). Solo existen en la base
+sembrada por el seed; no se muestran en la pantalla de login del deploy.
+
 ### Tests del frontend
 
 ```bash
@@ -75,7 +83,6 @@ El workflow `.github/workflows/ci.yml` corre en cada push/PR a `main`:
 - [x] **Fase 6** — Progreso físico (métricas corporales)
 - [x] **Fase 7** — Dashboard de reportes / analytics
 - [x] **Fase 8** — Testing, pulido UI, deploy
-- [ ] **Fase 9 (opcional)** — Asistente IA para recomendación de rutinas
 
 ## Decisiones de arquitectura
 
