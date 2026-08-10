@@ -37,6 +37,9 @@ gym-system/
 │   └── package.json
 ├── frontend/
 │   └── src/
+├── mcp-server/              # servidor MCP (stdio) para el backend
+│   ├── src/                 # tools: health_check, login, whoami, logout, list_users
+│   └── scripts/             # smoke test del flujo login/sesión
 └── docker-compose.yml
 ```
 
@@ -63,6 +66,49 @@ sembrada por el seed; no se muestran en la pantalla de login del deploy.
 cd frontend && npm test          # suite unitaria (Vitest + Testing Library, jsdom)
 cd frontend && npm run test:watch
 ```
+
+## MCP server
+
+El repo incluye un servidor [MCP](https://modelcontextprotocol.io) mínimo
+(`mcp-server/`) que expone el backend a clientes MCP (asistentes/agentes), con
+transporte **stdio** (HTTP/SSE remoto queda como trabajo futuro). Stack: Node +
+TypeScript + `@modelcontextprotocol/sdk`.
+
+### Tools
+
+| Tool | Inputs | Descripción |
+|---|---|---|
+| `health_check` | — | GET `/health` del backend; devuelve status HTTP + body (tolera body no-JSON). |
+| `login` | `email`, `password` | POST `/api/auth/login`; guarda la sesión (token + usuario) **en memoria del proceso**, nunca en disco. Devuelve nombre/email/rol, nunca el token. |
+| `whoami` | — | Usuario logueado, o "no hay sesión activa, usa login primero". |
+| `logout` | — | Borra la sesión en memoria. |
+| `list_users` | — | GET `/api/users` con el token de la sesión. 401 → cierra la sesión; 403 → error sin tocarla. Requiere rol admin/recepción/entrenador. |
+
+### Configuración
+
+- `GYM_API_URL`: URL base del backend. Default: `https://gym-system-2sb4.onrender.com`
+  (el backend real de producción). Para apuntar al backend local:
+  `GYM_API_URL=http://127.0.0.1:4000`.
+
+### Scripts
+
+```bash
+cd mcp-server
+npm install
+npm run dev          # dev con tsx
+npm run build        # tsc -> dist/
+npm start            # corre el build
+npm run inspect      # abre MCP Inspector sobre el server
+npm run smoke:login  # smoke test end-to-end del flujo login/sesión/list_users
+```
+
+`smoke:login` habla JSON-RPC real por stdio contra el backend (por defecto el de
+Render; con `GYM_API_URL=http://127.0.0.1:4000` contra el local) y valida las 14
+respuestas del flujo `login → whoami → logout → whoami + list_users`, incluidos
+los bordes (401 que no sobreescribe, 403 que no cierra la sesión).
+
+> El backend de Render free se duerme tras 15 min de inactividad: si el smoke
+test devuelve timeout, calentar el backend primero (un `curl` a `/health`).
 
 ## Deploy (Docker Compose)
 
