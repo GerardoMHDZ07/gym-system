@@ -24,8 +24,12 @@ const MCP_CORS_ORIGINS = (
 
 // Por defecto solo localhost (con protección DNS rebinding del helper del SDK);
 // para exponerlo, setear MCP_HOST/MCP_PORT (p. ej. 0.0.0.0:4001).
+// PORT primero (convención del backend, src/index.ts): en Render la plataforma
+// inyecta $PORT (default 10000) y enruta a ese puerto — sin esto el contenedor
+// escucharía en 4001 y el deploy quedaría inalcanzable. MCP_PORT sigue siendo
+// el override explícito para dev/self-host.
 const HOST = process.env.MCP_HOST || "127.0.0.1";
-const PORT = Number(process.env.MCP_PORT || 4001);
+const PORT = Number(process.env.PORT || process.env.MCP_PORT || 4001);
 
 // Capa 1 — API key compartida, ANTES de cualquier lógica de sesión MCP: el
 // header X-MCP-API-Key debe coincidir con MCP_API_KEY. Si la variable no está

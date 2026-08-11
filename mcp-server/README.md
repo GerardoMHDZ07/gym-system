@@ -48,7 +48,7 @@ entorno:
 | Variable | Default | Qué hace |
 |---|---|---|
 | `MCP_HOST` | `127.0.0.1` | Host de escucha. `0.0.0.0` lo expone a cualquier cliente con la API key (el default solo escucha en localhost). |
-| `MCP_PORT` | `4001` | Puerto de escucha. |
+| `MCP_PORT` | `4001` | Puerto de escucha. En Render, la variable `PORT` que inyecta la plataforma tiene prioridad sobre esta (misma convención que el backend). |
 | `MCP_API_KEY` | — | **Requerida en modo HTTP.** El server exige el header `X-MCP-API-Key` con este valor en todas las rutas `/mcp`; falta o no coincide → `401`, y si la variable no está configurada → `503` en todo `/mcp` (fail-closed). `/health` queda sin proteger. Se inyecta como env al desplegar, nunca se hardcodea. |
 | `GYM_API_URL` | `https://gym-system-2sb4.onrender.com` | URL base del backend al que los tools llaman (la de producción por defecto; `http://127.0.0.1:4000` para dev). |
 | `MCP_CORS_ORIGINS` | defaults de dev | Allowlist de orígenes CORS (coma-separado), misma convención que `CORS_ORIGINS` del backend. Sin header Origin (curl, server-to-server) se permite siempre. |
