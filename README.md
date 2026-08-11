@@ -89,6 +89,11 @@ TypeScript + `@modelcontextprotocol/sdk`.
 - `GYM_API_URL`: URL base del backend. Default: `https://gym-system-2sb4.onrender.com`
   (el backend real de producción). Para apuntar al backend local:
   `GYM_API_URL=http://127.0.0.1:4000`.
+- `MCP_API_KEY`: **requerida en modo HTTP** (transporte stdio no la usa). El
+  server exige el header `X-MCP-API-Key` con ese valor en todas las rutas
+  `/mcp`; si falta o no coincide responde `401`, y si la variable no está
+  configurada responde `503` en todo `/mcp` (fail-closed). `/health` queda sin
+  proteger. Se inyecta como env al desplegar (no se hardcodea en la imagen).
 
 ### Scripts
 
@@ -101,8 +106,8 @@ npm start            # corre el build
 npm run inspect      # abre MCP Inspector sobre el server
 npm run smoke:login  # smoke test end-to-end del flujo login/sesión/list_users
 npm run dev:http     # servidor HTTP (Streamable HTTP) en 127.0.0.1:4001
-npm run start:http   # corre el build HTTP
-npm run smoke:http   # smoke test end-to-end del transporte HTTP
+npm run start:http   # corre el build HTTP (exige MCP_API_KEY en /mcp)
+npm run smoke:http   # smoke test end-to-end del transporte HTTP (cubre API key y rate limit)
 ```
 
 Además del transporte **stdio**, el mismo server se sirve por **HTTP** (Streamable
@@ -110,9 +115,14 @@ HTTP, el estándar actual del spec) en `http://127.0.0.1:4001/mcp` — pensado p
 clientes remotos. `MCP_PORT`/`MCP_HOST` para cambiar puerto/host (por defecto
 solo localhost), y `MCP_CORS_ORIGINS` (coma-separado) para la allowlist de CORS,
 con la misma convención que `CORS_ORIGINS` del backend. Cada sesión HTTP tiene
-su propio estado de login en memoria. Por defecto solo escucha en `127.0.0.1`:
-`MCP_HOST=0.0.0.0` lo expone a cualquier cliente (mismas credenciales demo, sin
-rate limiting) — la allowlist de CORS solo protege browsers.
+su propio estado de login en memoria.
+
+Seguridad del transporte HTTP: además de la API key (`MCP_API_KEY`, arriba), los
+`POST /mcp` tienen rate limit de **30/min por IP** (protege los intentos de login
+por minuto sin frenar una sesión MCP legítima de tool calls secuenciales); con
+`trust proxy` de una esperanza, la IP es la real del cliente detrás del proxy de
+Render. Por defecto solo escucha en `127.0.0.1`: `MCP_HOST=0.0.0.0` lo expone a
+cualquier cliente con la API key — la allowlist de CORS solo protege browsers.
 
 `smoke:login` habla JSON-RPC real por stdio contra el backend (por defecto el de
 Render; con `GYM_API_URL=http://127.0.0.1:4000` contra el local) y valida las 14

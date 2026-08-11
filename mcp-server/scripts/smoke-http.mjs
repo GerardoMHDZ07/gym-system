@@ -6,9 +6,11 @@ import { spawn } from "node:child_process";
 
 const PORT = process.env.MCP_PORT || 4001;
 const BASE = `http://127.0.0.1:${PORT}`;
+// Clave compartida de prueba: el server exige X-MCP-API-Key == MCP_API_KEY.
+const KEY = process.env.MCP_API_KEY || "smoke-test-key";
 
 const child = spawn("node", ["dist/http.js"], {
-  env: { ...process.env, MCP_PORT: String(PORT), MCP_HOST: "127.0.0.1" },
+  env: { ...process.env, MCP_PORT: String(PORT), MCP_HOST: "127.0.0.1", MCP_API_KEY: KEY },
   stdio: ["ignore", "pipe", "inherit"],
 });
 
@@ -64,6 +66,7 @@ const headers = (extra = {}) => ({
   "Content-Type": "application/json",
   // El spec Streamable HTTP exige que el cliente acepte ambos formatos de respuesta.
   Accept: "application/json, text/event-stream",
+  "X-MCP-API-Key": KEY,
   ...(sessionId ? { "Mcp-Session-Id": sessionId } : {}),
   ...extra,
 });
@@ -101,6 +104,74 @@ async function tool(name, args = {}) {
 
 let failed = 0;
 
+// --- Seguridad: API key compartida ------------------------------------------
+
+// Sin la key el endpoint /mcp debe rechazar (fail-closed) sin tocar la lógica
+// de transporte; /health queda abierto (check de disponibilidad).
+const noKey = await fetch(`${BASE}/mcp`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json, text/event-stream",
+  },
+  body: JSON.stringify({ jsonrpc: "2.0", id: 901, method: "initialize", params: {} }),
+  signal: AbortSignal.timeout(5000),
+});
+failed += !expect("POST /mcp sin API key → 401", noKey.status, 401);
+
+const wrongKey = await fetch(`${BASE}/mcp`, {
+  method: "POST",
+  headers: {
+    ...headers(),
+    "X-MCP-API-Key": "clave-incorrecta",
+  },
+  body: JSON.stringify({ jsonrpc: "2.0", id: 902, method: "initialize", params: {} }),
+  signal: AbortSignal.timeout(5000),
+});
+failed += !expect("POST /mcp con API key incorrecta → 401", wrongKey.status, 401);
+
+const healthNoKey = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(5000) });
+failed += !expect("GET /health sin API key → 200 (sin proteger)", healthNoKey.status, 200);
+
+// Fail-closed: sin MCP_API_KEY configurada, /mcp rechaza TODO con 503 aunque el
+// header venga bien (olvidarse de setearla en el deploy nunca deja el endpoint
+// abierto); /health sigue respondiendo para orquestación.
+const noKeyPort = Number(PORT) + 1;
+const noKeyEnv = { ...process.env, MCP_PORT: String(noKeyPort), MCP_HOST: "127.0.0.1" };
+delete noKeyEnv.MCP_API_KEY; // forzar el branch sin key aunque el dev la tenga en su env
+const childNoKey = spawn("node", ["dist/http.js"], { env: noKeyEnv, stdio: ["ignore", "pipe", "inherit"] });
+childNoKey.on("error", (err) => {
+  console.error(`No se pudo arrancar el server sin key: ${err.message}`);
+  process.exit(1);
+});
+for (let i = 0; i < 40; i++) {
+  try {
+    const r = await fetch(`http://127.0.0.1:${noKeyPort}/health`, {
+      signal: AbortSignal.timeout(2000),
+    });
+    if (r.ok) break;
+  } catch {
+    /* arrancando */
+  }
+  await sleep(500);
+}
+const failClosed = await fetch(`http://127.0.0.1:${noKeyPort}/mcp`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json, text/event-stream",
+    "X-MCP-API-Key": KEY,
+  },
+  body: JSON.stringify({ jsonrpc: "2.0", id: 903, method: "initialize", params: {} }),
+  signal: AbortSignal.timeout(5000),
+});
+failed += !expect("POST /mcp sin MCP_API_KEY configurada → 503 (fail-closed)", failClosed.status, 503);
+const noKeySrvHealth = await fetch(`http://127.0.0.1:${noKeyPort}/health`, {
+  signal: AbortSignal.timeout(5000),
+});
+failed += !expect("health sigue respondiendo sin MCP_API_KEY", noKeySrvHealth.status, 200);
+childNoKey.kill();
+
 // --- Handshake y flujo de sesión/login -------------------------------------
 
 const init = await rpc("initialize", {
@@ -116,9 +187,11 @@ failed += !expect("notifications/initialized → 202", await notify("notificatio
 
 const init2Res = await fetch(`${BASE}/mcp`, {
   method: "POST",
+  // Sin Mcp-Session-Id a propósito: es un cliente NUEVO (multi-cliente).
   headers: {
     "Content-Type": "application/json",
     Accept: "application/json, text/event-stream",
+    "X-MCP-API-Key": KEY,
   },
   body: JSON.stringify({
     jsonrpc: "2.0",
@@ -141,7 +214,7 @@ failed += !expect(
 );
 const del2 = await fetch(`${BASE}/mcp`, {
   method: "DELETE",
-  headers: { "Mcp-Session-Id": sid2, Accept: "application/json, text/event-stream" },
+  headers: headers({ "Mcp-Session-Id": sid2 }),
   signal: AbortSignal.timeout(5000),
 });
 failed += !expect("cerrar la segunda sesión (200)", del2.status, 200);
@@ -215,11 +288,29 @@ failed += !expect(
   null
 );
 
+// --- Rate limit: POST /mcp 30/min por IP ------------------------------------
+
+// El flujo ya consumió 9 POSTs: una ráfaga de 35 debe tocar el techo de 30/min
+// y devolver 429 en la cola (los 401 de la API key no consumen cuota).
+// Nota: la aserción acopla el test al límite — la ráfaga debe ser límite + 5;
+// si cambias `limit` en http.ts, ajustá este número.
+let rateLimited = 0;
+for (let i = 0; i < 35; i++) {
+  const res = await fetch(`${BASE}/mcp`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ jsonrpc: "2.0", id: 800 + i, method: "ping", params: {} }),
+    signal: AbortSignal.timeout(5000),
+  });
+  if (res.status === 429) rateLimited++;
+}
+failed += !expect("ráfaga de POSTs → al menos un 429 (rate limit 30/min)", rateLimited > 0, true);
+
 child.kill();
 
 if (failed > 0) {
   console.error(`\n${failed} aserción(es) fallida(s)`);
   process.exit(1);
 }
-console.log("\nTransporte HTTP (Streamable HTTP) OK: handshake, tools, SSE, DELETE y CORS");
+console.log("\nTransporte HTTP (Streamable HTTP) OK: API key, handshake, tools, SSE, DELETE, CORS y rate limit");
 process.exit(0);
