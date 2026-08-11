@@ -9,8 +9,20 @@ const BASE = `http://127.0.0.1:${PORT}`;
 // Clave compartida de prueba: el server exige X-MCP-API-Key == MCP_API_KEY.
 const KEY = process.env.MCP_API_KEY || "smoke-test-key";
 
+// El test elige el puerto vía MCP_PORT. Con la convención del backend
+// (PORT || MCP_PORT || 4001) un PORT suelto en el env del dev/CI lo ganaría y
+// el server escucharía en otro puerto: se borra para que MCP_PORT sea
+// autoritativo en el test.
+const childEnv = {
+  ...process.env,
+  MCP_PORT: String(PORT),
+  MCP_HOST: "127.0.0.1",
+  MCP_API_KEY: KEY,
+};
+delete childEnv.PORT;
+
 const child = spawn("node", ["dist/http.js"], {
-  env: { ...process.env, MCP_PORT: String(PORT), MCP_HOST: "127.0.0.1", MCP_API_KEY: KEY },
+  env: childEnv,
   stdio: ["ignore", "pipe", "inherit"],
 });
 
@@ -139,6 +151,7 @@ failed += !expect("GET /health sin API key → 200 (sin proteger)", healthNoKey.
 const noKeyPort = Number(PORT) + 1;
 const noKeyEnv = { ...process.env, MCP_PORT: String(noKeyPort), MCP_HOST: "127.0.0.1" };
 delete noKeyEnv.MCP_API_KEY; // forzar el branch sin key aunque el dev la tenga en su env
+delete noKeyEnv.PORT; // idem: MCP_PORT manda en el test
 const childNoKey = spawn("node", ["dist/http.js"], { env: noKeyEnv, stdio: ["ignore", "pipe", "inherit"] });
 childNoKey.on("error", (err) => {
   console.error(`No se pudo arrancar el server sin key: ${err.message}`);
