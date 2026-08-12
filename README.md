@@ -52,6 +52,28 @@ cd backend && npm install && npm run dev
 cd frontend && npm install && npm run dev
 ```
 
+## Kubernetes (local)
+
+Además de Docker Compose (dev) y Render (producción), el stack completo
+también se puede correr en un cluster de Kubernetes local con minikube —
+backend, frontend+nginx y mcp-server, cada uno con su propio Deployment,
+Service, y configuración separada de sus secretos. Detalle completo en
+[`k8s/README.md`](k8s/README.md).
+
+```bash
+minikube start
+eval $(minikube docker-env)
+docker build -t gym-backend:local ./backend
+docker build -t gym-frontend:local ./frontend
+docker build -t gym-mcp:local ./mcp-server
+kubectl apply -f k8s/00-namespace.yaml -f k8s/01-configmap.yaml
+# el Secret real se crea de forma imperativa, ver k8s/README.md
+kubectl apply -f k8s/02-backend-deployment.yaml -f k8s/02-backend-service.yaml
+kubectl apply -f k8s/03-frontend-nginx-configmap.yaml -f k8s/03-frontend-deployment.yaml -f k8s/03-frontend-service.yaml
+kubectl apply -f k8s/04-mcp-deployment.yaml -f k8s/04-mcp-service.yaml
+minikube service gym-frontend -n gym-system --url
+```
+
 ### Cuentas demo
 
 El seed (`backend/src/migrations/002_seed.sql`) crea usuarios de prueba por rol,

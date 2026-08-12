@@ -1,0 +1,17 @@
+# NodePort, igual que el frontend: Claude Desktop corre fuera del cluster
+# (en tu Windows), así que necesita poder alcanzar este Service desde afuera,
+# vía mcp-remote — el mismo patrón que ya usaste para conectarlo a Render,
+# solo que ahora la URL apunta a tu cluster local en vez de a internet.
+apiVersion: v1
+kind: Service
+metadata:
+  name: gym-mcp
+  namespace: gym-system
+spec:
+  selector:
+    app: gym-mcp
+  ports:
+    - port: 4001
+      targetPort: 4001
+      nodePort: 30081
+  type: NodePort

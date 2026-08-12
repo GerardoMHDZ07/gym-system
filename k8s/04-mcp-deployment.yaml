@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gym-mcp
+  namespace: gym-system
+  labels:
+    app: gym-mcp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gym-mcp
+  template:
+    metadata:
+      labels:
+        app: gym-mcp
+    spec:
+      containers:
+        - name: gym-mcp
+          # Mismo Dockerfile que ya usaste para Render — su CMD ya arranca
+          # el transporte HTTP (dist/http.js), no el de stdio.
+          image: gym-mcp:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4001
+          env:
+            - name: GYM_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: gym-system-config
+                  key: GYM_API_URL
+            - name: MCP_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: gym-system-config
+                  key: MCP_HOST
+            - name: MCP_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: gym-system-config
+                  key: MCP_PORT
+            - name: MCP_CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: gym-system-config
+                  key: MCP_CORS_ORIGINS
+            - name: MCP_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gym-system-secrets
+                  key: MCP_API_KEY
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4001
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "300m"
+              memory: "256Mi"

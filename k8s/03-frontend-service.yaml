@@ -1,0 +1,18 @@
+# NodePort (no ClusterIP): a diferencia del backend, este SÍ necesita ser
+# alcanzable desde fuera del cluster — es la puerta de entrada que vas a
+# abrir en el navegador. En un cluster real en la nube normalmente sería
+# type: LoadBalancer; en minikube local, NodePort + "minikube service" es
+# el equivalente práctico.
+apiVersion: v1
+kind: Service
+metadata:
+  name: gym-frontend
+  namespace: gym-system
+spec:
+  selector:
+    app: gym-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080
+  type: NodePort

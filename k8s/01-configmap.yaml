@@ -1,0 +1,19 @@
+# Valores no sensibles. Todo lo que sea password, token o key va en el
+# Secret (01-secret.yaml), nunca aquí — un ConfigMap no está cifrado y
+# cualquiera con acceso de lectura al namespace lo puede ver en texto plano.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gym-system-config
+  namespace: gym-system
+data:
+  # El backend lee esto para saber a qué orígenes permitir CORS.
+  CORS_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
+  # El MCP server necesita saber dónde vive el backend. Dentro del cluster,
+  # los Services se resuelven por DNS interno: <nombre-service>.<namespace>.svc.cluster.local.
+  # Usamos el nombre corto (gym-backend) porque ambos Pods viven en el mismo
+  # namespace — Kubernetes lo resuelve sin que haga falta el FQDN completo.
+  GYM_API_URL: "http://gym-backend:4000"
+  MCP_HOST: "0.0.0.0"
+  MCP_PORT: "4001"
+  MCP_CORS_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"

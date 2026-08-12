@@ -1,0 +1,16 @@
+# ClusterIP: solo alcanzable dentro del cluster. El backend no necesita ser
+# público — solo el frontend (vía nginx) y el mcp-server le hablan, y ambos
+# viven dentro del mismo cluster. El nombre "gym-backend" es justo lo que
+# el ConfigMap usa en GYM_API_URL (DNS interno de Kubernetes).
+apiVersion: v1
+kind: Service
+metadata:
+  name: gym-backend
+  namespace: gym-system
+spec:
+  selector:
+    app: gym-backend
+  ports:
+    - port: 4000
+      targetPort: 4000
+  type: ClusterIP

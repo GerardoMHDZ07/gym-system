@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gym-backend
+  namespace: gym-system
+  labels:
+    app: gym-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gym-backend
+  template:
+    metadata:
+      labels:
+        app: gym-backend
+    spec:
+      containers:
+        - name: gym-backend
+          # Construida directo en el daemon de Docker de minikube (ver README).
+          # imagePullPolicy: Never evita que Kubernetes intente bajarla de un
+          # registry remoto que no existe para esta imagen local.
+          image: gym-backend:local
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 4000
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: gym-system-secrets
+                  key: DATABASE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: gym-system-secrets
+                  key: JWT_SECRET
+            - name: CORS_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: gym-system-config
+                  key: CORS_ORIGINS
+          # Kubernetes solo manda tráfico a este pod cuando /health responde 200.
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          # Si /health deja de responder de forma sostenida, Kubernetes reinicia
+          # el contenedor solo — no hace falta nadie despierto a las 3am.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
